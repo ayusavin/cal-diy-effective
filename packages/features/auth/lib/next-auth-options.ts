@@ -3,6 +3,7 @@ import { updateProfilePhotoGoogle } from "@calcom/app-store/_utils/oauth/updateP
 import { updateProfilePhotoMicrosoft } from "@calcom/app-store/_utils/oauth/updateProfilePhotoMicrosoft";
 import { createGoogleCalendarServiceWithGoogleType } from "@calcom/app-store/googlecalendar/lib/CalendarService";
 import { getIdentityProvider } from "@calcom/features/auth/lib/identityProviders";
+import { revalidateYandexSession, isYandexLoginEnabled, signInWithYandex, yandexProvider } from "./yandex";
 import {
   OUTLOOK_CLIENT_ID,
   OUTLOOK_CLIENT_SECRET,
@@ -301,6 +302,7 @@ export const CalComCredentialsProvider = CredentialsProvider({
 });
 
 const providers: Provider[] = [CalComCredentialsProvider];
+if (isYandexLoginEnabled()) providers.push(yandexProvider());
 type SamlIdpUser = {
   id: number;
   userId: number;
@@ -427,7 +429,20 @@ export const getOptions = ({
       // Available only in the first call once the user signs in. Not available in subsequent calls
       account,
     }) {
-      log.debug("callbacks:jwt", safeStringify({ token, user, account, trigger, session }));
+      log.debug("callbacks:jwt", { provider: account?.provider, trigger });
+      if (isYandexLoginEnabled()) {
+        if (account?.provider === "yandex") {
+          token.yandexUserId = account.providerAccountId;
+          token.yandexCheckedAt = Date.now();
+        } else if (typeof token.yandexUserId !== "string") {
+          throw new Error("Corporate Yandex login required");
+        }
+        if (Date.now() - Number(token.yandexCheckedAt || 0) > 300000) {
+          const profile = await revalidateYandexSession(String(token.yandexUserId));
+          token.email = profile.default_email.toLowerCase();
+          token.yandexCheckedAt = Date.now();
+        }
+      }
       // The data available in 'session' depends on what data was supplied in update method call of session
       if (trigger === "update") {
         return {
@@ -436,8 +451,8 @@ export const getOptions = ({
           upId: session?.upId ?? token.upId ?? null,
           locale: session?.locale ?? token.locale ?? "en",
           name: session?.name ?? token.name,
-          username: session?.username ?? token.username,
-          email: session?.email ?? token.email,
+          username: isYandexLoginEnabled() ? token.username : (session?.username ?? token.username),
+          email: isYandexLoginEnabled() ? token.email : (session?.email ?? token.email),
         } as JWT;
       }
       const autoMergeIdentities = async () => {
@@ -798,7 +813,16 @@ export const getOptions = ({
         account,
       } = params;
 
-      log.debug("callbacks:signin", safeStringify(params));
+      log.debug("callbacks:signin", { provider: account?.provider, type: account?.type });
+      if (isYandexLoginEnabled()) {
+        if (account?.provider !== "yandex") return false;
+        try {
+          return await signInWithYandex(account, profile);
+        } catch {
+          log.warn("Corporate Yandex sign-in rejected");
+          return false;
+        }
+      }
 
       if (account?.provider === "email") {
         return true;

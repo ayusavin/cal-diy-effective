@@ -26,6 +26,9 @@ const querySchema = z.object({
 });
 
 async function handler(req: NextRequest) {
+  if (process.env.YANDEX_LOGIN_ENABLED === "true") {
+    throw new HttpError({ statusCode: 403, message: "Corporate Yandex login required" });
+  }
   const userCount = await prisma.user.count();
   if (userCount !== 0) {
     throw new HttpError({ statusCode: 400, message: "No setup needed." });

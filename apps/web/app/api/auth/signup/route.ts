@@ -16,6 +16,9 @@ import { prisma } from "@calcom/prisma";
 import { signupSchema } from "@calcom/prisma/zod-utils";
 
 async function ensureSignupIsEnabled(body: Record<string, string>) {
+  if (process.env.YANDEX_LOGIN_ENABLED === "true") {
+    throw new HttpError({ statusCode: 403, message: "Corporate Yandex login required" });
+  }
   const { token } = signupSchema
     .pick({
       token: true,
