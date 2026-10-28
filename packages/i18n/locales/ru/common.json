@@ -1355,6 +1355,7 @@
   "account_managed_by_identity_provider_error": "Ваш аккаунт управляется другим провайдером идентификации. Попробуйте войти через {{provider}}.",
   "user_creation_error": "Ошибка при создании нового пользователя. Пожалуйста, попробуйте снова.",
   "signin_with_google": "Войти через Google",
+  "signin_with_yandex": "Sign in with <brand>Yandex ID</brand>",
   "signin_with_saml": "Войти с помощью SAML",
   "signin_with_saml_oidc": "Войти с помощью SAML/OIDC",
   "continue_with_email": "Продолжить с помощью электронной почты",

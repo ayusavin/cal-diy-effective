@@ -1,6 +1,7 @@
 "use client";
 
 import { ErrorCode } from "@calcom/features/auth/lib/ErrorCode";
+import ServerTrans from "@calcom/lib/components/ServerTrans";
 import { HOSTED_CAL_FEATURES, WEBAPP_URL, WEBSITE_URL } from "@calcom/lib/constants";
 import { emailRegex } from "@calcom/lib/emailSchema";
 import { getSafeRedirectUrl } from "@calcom/lib/getSafeRedirectUrl";
@@ -25,6 +26,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { signIn } from "next-auth/react";
 import { useEffect, useState } from "react";
+import type { ReactNode } from "react";
 import { FormProvider, useForm } from "react-hook-form";
 import { z } from "zod";
 
@@ -36,12 +38,15 @@ interface LoginValues {
   csrfToken: string;
 }
 
-const MicrosoftIcon = () => (
-  <img className="size-4" src="/microsoft-logo.svg" alt="" />
-);
+const MicrosoftIcon = () => <img className="size-4" src="/microsoft-logo.svg" alt="" />;
 
-const GoogleIcon = () => (
-  <img className="size-4" src="/google-icon-colored.svg" alt="" />
+const GoogleIcon = () => <img className="size-4" src="/google-icon-colored.svg" alt="" />;
+
+const YandexBrand = ({ children }: { children?: ReactNode }) => (
+  <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
+    <img className="size-4 invert dark:invert-0" src="/yandex-id-icon.svg" width={16} height={16} alt="" />
+    {children}
+  </span>
 );
 
 function BackgroundGrid() {
@@ -105,6 +110,7 @@ export default function Login({
   csrfToken,
   isGoogleLoginEnabled,
   isOutlookLoginEnabled,
+  isYandexLoginEnabled,
   totpEmail,
 }: PageProps) {
   const searchParams = useCompatSearchParams();
@@ -170,7 +176,7 @@ export default function Login({
     else setErrorMessage(errorMessages[res.error] || t("something_went_wrong"));
   };
 
-  const showSocialLogin = isGoogleLoginEnabled || isOutlookLoginEnabled;
+  const showSocialLogin = isGoogleLoginEnabled || isOutlookLoginEnabled || isYandexLoginEnabled;
   const showSignupLink =
     process.env.NEXT_PUBLIC_DISABLE_SIGNUP !== "true" && searchParams?.get("register") !== "false";
 
@@ -196,6 +202,20 @@ export default function Login({
             {!twoFactorRequired && showSocialLogin && (
               <>
                 <div className="flex flex-col gap-2">
+                  {isYandexLoginEnabled && (
+                    <Button
+                      className="w-full"
+                      data-testid="yandex"
+                      onClick={() => signIn("yandex", { callbackUrl })}>
+                      <span className="inline-flex items-center gap-1">
+                        <ServerTrans
+                          t={t}
+                          i18nKey="signin_with_yandex"
+                          components={{ brand: <YandexBrand /> }}
+                        />
+                      </span>
+                    </Button>
+                  )}
                   {isGoogleLoginEnabled && (
                     <Button
                       className="w-full py-1"
@@ -233,90 +253,101 @@ export default function Login({
                 </div>
 
                 {/* Divider */}
-                <div className="my-6 flex items-center gap-4">
-                  <Separator className="flex-1" />
-                  <span className="text-sm text-zinc-400">{t("or").toLowerCase()}</span>
-                  <Separator className="flex-1" />
-                </div>
+                {!isYandexLoginEnabled && (
+                  <div className="my-6 flex items-center gap-4">
+                    <Separator className="flex-1" />
+                    <span className="text-sm text-zinc-400">{t("or").toLowerCase()}</span>
+                    <Separator className="flex-1" />
+                  </div>
+                )}
               </>
             )}
 
-            <form onSubmit={methods.handleSubmit(onSubmit)} noValidate data-testid="login-form">
-              <input defaultValue={csrfToken || undefined} type="hidden" hidden {...register("csrfToken")} />
+            {!isYandexLoginEnabled && (
+              <form onSubmit={methods.handleSubmit(onSubmit)} noValidate data-testid="login-form">
+                <input
+                  defaultValue={csrfToken || undefined}
+                  type="hidden"
+                  hidden
+                  {...register("csrfToken")}
+                />
 
-              {!twoFactorRequired && (
-                <div className="space-y-6">
-                  {/* Email Field */}
-                  <Field>
-                    <FieldLabel>{t("email")}</FieldLabel>
-                    <Input
-                      id="email"
-                      type="email"
-                      defaultValue={totpEmail || (searchParams?.get("email") as string)}
-                      autoComplete="email"
-                      {...register("email")}
-                    />
-                    {formState.errors.email && (
-                      <p data-testid="field-error" className="text-destructive-foreground text-xs">
-                        {formState.errors.email.message}
-                      </p>
-                    )}
-                  </Field>
-
-                  {/* Password Field */}
-                  <Field>
-                    <div className="flex w-full items-center justify-between">
-                      <FieldLabel>{t("password")}</FieldLabel>
-                      <Link href="/auth/forgot-password" className="text-sm text-subtle hover:text-emphasis">
-                        {t("forgot")}
-                      </Link>
-                    </div>
-                    <InputGroup className="overflow-hidden">
-                      <InputGroupInput
-                        id="password"
-                        type={showPassword ? "text" : "password"}
-                        autoComplete="current-password"
-                        {...register("password")}
+                {!twoFactorRequired && (
+                  <div className="space-y-6">
+                    {/* Email Field */}
+                    <Field>
+                      <FieldLabel>{t("email")}</FieldLabel>
+                      <Input
+                        id="email"
+                        type="email"
+                        defaultValue={totpEmail || (searchParams?.get("email") as string)}
+                        autoComplete="email"
+                        {...register("email")}
                       />
-                      <InputGroupAddon align="inline-end">
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon-xs"
-                          onClick={() => setShowPassword(!showPassword)}
-                          aria-label={showPassword ? t("hide_password") : t("show_password")}>
-                          {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
-                        </Button>
-                      </InputGroupAddon>
-                    </InputGroup>
-                    {formState.errors.password && (
-                      <p data-testid="field-error" className="text-destructive-foreground text-xs">
-                        {formState.errors.password.message}
-                      </p>
-                    )}
-                  </Field>
-                </div>
-              )}
+                      {formState.errors.email && (
+                        <p data-testid="field-error" className="text-destructive-foreground text-xs">
+                          {formState.errors.email.message}
+                        </p>
+                      )}
+                    </Field>
 
-              {/* Two Factor */}
-              {twoFactorRequired && (
-                <div className="space-y-4">
-                  {!twoFactorLostAccess ? <TwoFactor center /> : <BackupCode center />}
-                </div>
-              )}
+                    {/* Password Field */}
+                    <Field>
+                      <div className="flex w-full items-center justify-between">
+                        <FieldLabel>{t("password")}</FieldLabel>
+                        <Link
+                          href="/auth/forgot-password"
+                          className="text-sm text-subtle hover:text-emphasis">
+                          {t("forgot")}
+                        </Link>
+                      </div>
+                      <InputGroup className="overflow-hidden">
+                        <InputGroupInput
+                          id="password"
+                          type={showPassword ? "text" : "password"}
+                          autoComplete="current-password"
+                          {...register("password")}
+                        />
+                        <InputGroupAddon align="inline-end">
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon-xs"
+                            onClick={() => setShowPassword(!showPassword)}
+                            aria-label={showPassword ? t("hide_password") : t("show_password")}>
+                            {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                          </Button>
+                        </InputGroupAddon>
+                      </InputGroup>
+                      {formState.errors.password && (
+                        <p data-testid="field-error" className="text-destructive-foreground text-xs">
+                          {formState.errors.password.message}
+                        </p>
+                      )}
+                    </Field>
+                  </div>
+                )}
 
-              {/* Error Message */}
-              {errorMessage && <Alert severity="error" title={errorMessage} className="mt-4" />}
+                {/* Two Factor */}
+                {twoFactorRequired && (
+                  <div className="space-y-4">
+                    {!twoFactorLostAccess ? <TwoFactor center /> : <BackupCode center />}
+                  </div>
+                )}
 
-              {/* Submit Button */}
-              <Button
-                type="submit"
-                variant="outline"
-                className="mt-8 w-full"
-                disabled={formState.isSubmitting}>
-                {twoFactorRequired ? t("submit") : t("continue")}
-              </Button>
-            </form>
+                {/* Error Message */}
+                {errorMessage && <Alert severity="error" title={errorMessage} className="mt-4" />}
+
+                {/* Submit Button */}
+                <Button
+                  type="submit"
+                  variant="outline"
+                  className="mt-8 w-full"
+                  disabled={formState.isSubmitting}>
+                  {twoFactorRequired ? t("submit") : t("continue")}
+                </Button>
+              </form>
+            )}
 
             {/* Two Factor Footer */}
             {twoFactorRequired && (
